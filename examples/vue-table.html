@@ -11,11 +11,171 @@
     <body>
         
         <h1>表格示例：</h1>
-        
+        <vue-table
+            :options="tableDemo."
+        >
+        </vue-table>
         
         <!-- VueJs -->
         <script src="//cdn.bootcss.com/vue/2.2.4/vue.min.js"></script>
         <!-- 引入 Vue-Grid 文件 -->
         <script src="../dist/vue-table.js"></script>
+        <!-- VueAPP -->
+        <script>
+            var app = new Vue({
+                el: '#app',
+                data: {
+                    tableDemo: {
+                        api:'',
+                        options:{},
+                        columns:{},
+                        params:{},
+                        events:{}
+                    }
+                }
+            });
+        </script>
     </body>
 </html>
+
+
+
+<!-- component template -->
+<script type="text/x-template" id="grid-template">
+    <div class="table-responsive">
+        <!-- 数据加载中动画 -->
+        <div class="ui-table-loading" v-show="tableLoading">
+            <div class="sk-circle">
+                <div class="sk-circle1 sk-child"></div>
+                <div class="sk-circle2 sk-child"></div>
+                <div class="sk-circle3 sk-child"></div>
+                <div class="sk-circle4 sk-child"></div>
+                <div class="sk-circle5 sk-child"></div>
+                <div class="sk-circle6 sk-child"></div>
+                <div class="sk-circle7 sk-child"></div>
+                <div class="sk-circle8 sk-child"></div>
+                <div class="sk-circle9 sk-child"></div>
+                <div class="sk-circle10 sk-child"></div>
+                <div class="sk-circle11 sk-child"></div>
+                <div class="sk-circle12 sk-child"></div>
+            </div>
+            <p class="text-center">数据加载中...</p>
+        </div>
+        <!-- 数据加载中动画 结束 -->
+        <div class="vue-table-bar" v-if="tableSet">
+            <button type="button" class="btn btn-sm btn-icon btn-default" @click="setOption"><i class="fa fa-gear"></i></button>
+        </div>
+        <div class="table-box">
+            <table class="table table-striped b-t b-light table-{{tableName}}" >
+                <thead>
+                    <tr>
+                        <th width="20" rowspan="2" v-if="checkCol">
+                            <template v-if="multiSelect">
+                                <input type="checkbox" v-if="checkedAll" checked @click="checkAllEvent($event)" >
+                                <input type="checkbox" v-else @click="checkAllEvent($event)" >
+                            </template>
+                            <template v-if="!multiSelect">
+                                <input type="checkbox" v-if="checkedAll" checked @click="checkAllEvent($event)" disabled >
+                                <input type="checkbox" v-else @click="checkAllEvent($event)" disabled >
+                            </template>
+                        </th>
+                        <template v-for="key in columns">
+                            <th v-if="!key.child" v-show="key.visible" :class="[key.align ? 'text-'+key.align : '',key.lock ? 'col-lock' : '' ]" rowspan="2" :style="{width:key.width}">
+                                {{key.title}}
+                            </th>
+                            <th v-if="key.child" v-show="key.visible" :class="[key.align ? 'text-'+key.align : '',key.lock ? 'col-lock' : '' ]" colspan="{{ key.child.length | visibleChild key.child }}" :style="{width:key.width}">
+                                {{key.title}}
+                            </th>
+                        </template>
+                    </tr>
+                    <tr>
+                       <template v-for="key in columns">
+                            <th v-if="key.child.length" v-for="item in key.child" v-show="item.visible" class="{{item.align ? 'text-'+item.align : '' }}" :style="{width:item.width}">
+                                {{item.title}}
+                            </th>
+                        </template>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-if="tableData.length" v-for="(index,entry) in tableData" @dblclick="doubleClick(entry,$event)" @click="clickFuc(entry,$event,index)">
+                        <td v-if="checkCol" class="no-click">
+                            <input v-if="entry._checked" class="item-checkbox" type="checkbox" :data-index="index" checked @click="checkEvent(index,$event)">
+                            <input v-if="!entry._checked" class="item-checkbox" type="checkbox" :data-index="index" @click="checkEvent(index,$event)">
+                        </td>
+                        <template v-for="key in columns">
+                            <td v-if="key.visible && !key.child":class="[key.align ? 'text-'+key.align : '',key.lock ? 'col-lock' : '' ]" :style="{width:key.width}">
+                                {{{ key.renderer ? key.renderer(entry[key.name],entry,index) : entry[key.name] }}}
+                            </td>
+                            <td v-if="key.child" v-for="item in key.child" v-show="item.visible" class="{{item.align ? 'text-'+item.align : '' }}" :style="{width:item.width}">
+                                {{{ item.renderer ? item.renderer(entry[item.name],item,index) : entry[item.name] }}}
+                            </td>
+                        </template>
+                    </tr>
+                    <tr v-show="!tableData.length" class="ui-no-data">
+                        <td colspan="{{columnsCount}}" class="text-center" v-if="!tableLoading"><i class="fa fa-info-circle"></i>{{nodataText}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <footer class="panel-footer" v-if="tableOpt.footShow" onselectstart="return false;">
+            <div class="row">
+                <div class="col-sm-4 text-left">
+                    <div class="btn-group">
+                        <button v-for="key in limit" type="button" :class="['btn','btn-default','btn-sm',key==pagerParams['pageBean.pageSize'] ? 'active' : '' ]" @click="pagerParams['pageBean.pageSize'] = key">{{key}}</button>
+                    </div>
+                </div>
+                <div class="col-sm-4 text-center text-center-xs">
+                    <small class="text-muted inline m-t-sm m-b-sm" v-if="pageCount!=0" >共 {{dataCount}} 条数据， {{pagerParams['pageBean.pageNo']}}/{{pageCount}} 页</small>
+                </div>
+                <div class="col-sm-4 text-right text-center-xs">
+                    <ul class="pagination pagination-sm m-t-none m-b-none">
+                        <li :class="(pagerParams['pageBean.pageNo'] == 1 || pageCount == 0) ? 'disabled' : '' " @click="pagerParams['pageBean.pageNo'] != 1 ? pagerParams['pageBean.pageNo'] = pagerParams['pageBean.pageNo']-1 : '' "><a><i class="fa fa-chevron-left"></i></a></li>
+                        <li v-if="dataCount!=0" v-for="page in pagerList" :class="page == pagerParams['pageBean.pageNo'] ? 'active' : ''" @click="pagerParams['pageBean.pageNo'] = page"><a>{{page}}</a></li>
+                        <li :class="(pagerParams['pageBean.pageNo'] == pageCount || pageCount == 0 ) ? 'disabled' : '' " @click="pagerParams['pageBean.pageNo'] != pageCount && pageCount !=0  ? pagerParams['pageBean.pageNo'] = pagerParams['pageBean.pageNo']+1 : '' "><a><i class="fa fa-chevron-right"></i></a></li>
+                    </ul>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- 表格列设置 -->
+    <div class="modal fade modal-{{tableName}}" v-if="tableSet">
+        <div class="modal-dialog modal-table-set">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                    <h4 class="modal-title">表格列显示</h4>
+                </div>
+                <div class="modal-body">
+                    <ol>
+                        <template v-for="key in columns">
+                            <li>
+                                <div class="checkbox">
+                                    <label class="checkbox-custom" v-if="key.visible" >
+                                        <input type="checkbox" name="checkbox" checked="checked" @click="columnsDisplay(key)" >{{key.title}}
+                                    </label>
+                                    <label class="checkbox-custom" v-else>
+                                        <input type="checkbox" name="checkbox" @click="columnsDisplay(key)" >{{key.title}}
+                                    </label>
+                                </div>
+                            </li>
+                            <ol v-if="key.child">
+                                <li v-for="item in key.child">
+                                    <div class="checkbox">
+                                        <label class="checkbox-custom" v-if="item.visible" >
+                                            <input type="checkbox" name="checkbox" checked="checked" @click="columnsDisplay(item,key)" >{{item.title}}
+                                        </label>
+                                        <label class="checkbox-custom" v-else>
+                                            <input type="checkbox" name="checkbox" @click="columnsDisplay(item,key)" >{{item.title}}
+                                        </label>
+                                    </div>
+                                </li>
+                            </ol>
+                        </template>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- 表格列设置 结束 -->
+</script>
